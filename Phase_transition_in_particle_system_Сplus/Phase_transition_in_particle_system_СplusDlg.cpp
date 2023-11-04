@@ -69,6 +69,8 @@ void CPhasetransitioninparticlesystemСplusDlg::DoDataExchange(CDataExchange* pD
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_GRAPH, display_picture);
+	DDX_Control(pDX, IDC_GRAPH2, display_picture_2);
+	DDX_Control(pDX, IDC_GRAPH3, display_picture_3);
 }
 
 BEGIN_MESSAGE_MAP(CPhasetransitioninparticlesystemСplusDlg, CDialogEx)
@@ -76,6 +78,7 @@ BEGIN_MESSAGE_MAP(CPhasetransitioninparticlesystemСplusDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON1, &CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton1)
+	ON_BN_CLICKED(IDC_BUTTON2, &CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton2)
 END_MESSAGE_MAP()
 
 
@@ -111,7 +114,9 @@ BOOL CPhasetransitioninparticlesystemСplusDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Мелкий значок
 
 	// TODO: добавьте дополнительную инициализацию
-	drv.Create(GetDlgItem(IDC_GRAPH)->GetSafeHwnd());
+	drawer_particle.Create(GetDlgItem(IDC_GRAPH)->GetSafeHwnd());
+	drawer_energy.Create(GetDlgItem(IDC_GRAPH2)->GetSafeHwnd());
+	bias.Create(GetDlgItem(IDC_GRAPH3)->GetSafeHwnd());
 
 	return TRUE;  // возврат значения TRUE, если фокус не передан элементу управления
 }
@@ -209,8 +214,7 @@ void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton1()
 		for (int i = 0; i < 10; i++)
 			start_particles.next_state(start_particles.state, step_time);
 		// Нормировка
-		start_particles.speed_normalization(start_particles.state.speed_x);
-		start_particles.speed_normalization(start_particles.state.speed_y);
+		start_particles.all_speed_normalization();
 	}
 
 
@@ -223,5 +227,13 @@ void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton1()
 			<< start_particles.state.force_x[i] << "\t\t"
 			<< start_particles.state.force_y[i] << endl;
 	}*/
-	drv.Draw(start_particles.get_border_line(), start_particles.get_center_particles(), 1e9);
+	drawer_particle.drawing_particles(start_particles.get_border_line(), start_particles.get_center_particles(), 1e9);
+
+
+}
+
+
+void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton2()
+{
+	startAnimationFlow();
 }

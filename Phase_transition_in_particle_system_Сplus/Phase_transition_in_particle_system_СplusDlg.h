@@ -26,13 +26,21 @@ protected:
 	HICON m_hIcon;
 
 	// Созданные функции схемы сообщений
-	Drawer drv;
+	
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+	Drawer drawer_particle;
+	Drawer drawer_energy;
+	Drawer bias;
+	void startAnimationFlow();
+	void finishAnimationFlow();
 	afx_msg void OnBnClickedButton1();
 	CStatic display_picture;
+	afx_msg void OnBnClickedButton2();
+	CStatic display_picture_2;
+	CStatic display_picture_3;
 };

@@ -48,21 +48,35 @@ public:
 class Particles_and_processing
 {
 public:
+	// Физ. константы
 	const double a = 0.382e-9;		// [ м ] Равновесное растоние
 	const double k = 1.38e-23;		// [ Дж/К ] Постоянная Больцмана 
 	const double m = 6.63e-26;		// [ кг ] Масса Аргона
-	const double e = -1.6e-19;		// [ Кл ] Заряд электрона
+	const double e = 1.6e-19;		// [ Кл ] Заряд электрона
 	const double D = 0.0103 * e;	// [ Дж ] Модуль потенциальной энергии
 	// Константы для вычислний
 	const double a_6_power = pow(a, 6);
 	const double force_multiplier = 12 * D * a_6_power;
+	// - Для расчета потенциальной энергии
+	const double sigma = a / pow(2, 1. / 6.); 
+	const double sigma_6_power = pow(sigma, 6);
+	const double r_1 = 1.2 * a;
+	const double r_2 = 1.8 * a;
 
-	Border border;	// Граница расчетной ячейки
+	// Граница расчетной ячейки
+	Border border;	
 
+	// Характеристики системы
+	vector<double> energy_kinetic, energy_potential, energy_total; // Энергии
+	vector<double> enthalpy;	// Энтальпия
 	vector<double> temperature;	// Темпераура 
+	vector<double> average_square_displacement = {0}; // Средний квадрат смещения R^2
 
+
+	// Состояние системы: координты, скорости, силы
 	Particle_State state;
 
+private:
 	// Возвращает число частиц, по числу частиц в ширину
 	int number_of_particles(int number_elements_on_side);
 
@@ -81,17 +95,40 @@ public:
 		vector<double>& speed_x, vector<double>& speed_y);
 
 	// Расчет Сил
-	void force_calculation(Particle_State& in_state,
+	double force_calculation(Particle_State& in_state,
 		double& cell_width, double& cell_height);
+	// V^2 средняя
+	double square_average_speed(vector<double>& speed_x, vector<double>& speed_y);
+	// Энегрии
+	double kinetic_energy_of_system(
+		vector<double>& speed_x, vector<double>& speed_y);
+	double kinetic_energy_of_system(double& square_average_speed);
+	// PV
+	double calculation_PV(double& temperature);
+	// T
+	double temperature_calculation(
+		vector<double>& speed_x, vector<double>& speed_y);
+	double temperature_calculation(double& square_average_speed);
+	// R^2
+	double average_square_displacement_calculation(
+		vector<double>& x_old, vector<double>& y_old,
+		vector<double>& x_new, vector<double>& y_new);
+	double average_square_displacement_calculation(
+		Particle_State state_old,
+		Particle_State state_new);
 
-	/*   НАЧАЛЬНОЕ СОСТОЯНИЕ   */
+public:
+	// Начальное состояние
 	void simple_initial_state(
 		int number_elements_on_side,
 		double temperature
 	);
 	
-	// Расчет следующего положения шага
-	Particle_State next_state(Particle_State& old_state, double& time);
+	// Следующее положение системы
+	void next_state(Particle_State& old_state, double& time);
+
+	// Нормировка
+	void all_speed_normalization();
 
 	// Получение данных для отрисовки
 	Vector2D get_border_line();

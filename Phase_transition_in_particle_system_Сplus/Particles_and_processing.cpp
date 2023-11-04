@@ -119,6 +119,11 @@ void Particles_and_processing::speed_normalization(vector<double>& speed) {
 	}
 }
 
+void Particles_and_processing::all_speed_normalization() {
+	speed_normalization(state.speed_x);
+	speed_normalization(state.speed_y);
+}
+
 // Задание скоростей x,y
 void Particles_and_processing::starting_speed(
 	double& temperature, int& all_particles,
@@ -126,8 +131,8 @@ void Particles_and_processing::starting_speed(
 	/*
 
 	mV ^ 2   d
-	---- = -*k * Temperature; d - степень свободы
-	2    2
+	------ = - * k * Temperature; d - степень свободы
+	   2     2
 
 	V = sqrt(d * k * T / m) d = 1
 	V = sqrt(k * T / m)
@@ -160,10 +165,11 @@ void Particles_and_processing::starting_speed(
 }
 
 /*   СИЛЫ   */
-void Particles_and_processing::force_calculation(Particle_State& in_state,
+// Возвращает потенциальную энергию
+double Particles_and_processing::force_calculation(Particle_State& in_state,
 	double& cell_width, double& cell_height) {
 	if (in_state.x.empty() || in_state.y.empty())
-		return;
+		return 0.0;
 
 	int particle_number = in_state.x.size();
 
@@ -175,6 +181,9 @@ void Particles_and_processing::force_calculation(Particle_State& in_state,
 	in_state.force_x.resize(particle_number);
 	in_state.force_y.resize(particle_number);
 
+
+	// Потенциальная энергия системы
+	double potential = 0;
 	// Проходим по строчно
 	for (int particle_i = 0; particle_i < particle_number; particle_i++) {
 
@@ -201,10 +210,26 @@ void Particles_and_processing::force_calculation(Particle_State& in_state,
 				(difference_x / (radius_6_power * radius_2_power));
 			sum_y += (a_6_power / (radius_6_power)-1) *
 				(difference_y / (radius_6_power * radius_2_power));
+
+			// Расчет потенциальной энергии
+			double K_r = 0;
+			if (K_r <= r_1) {
+				K_r = 1;
+			}
+			else if (K_r <= r_2) {
+				double radius_ratio = (sqrt(radius_2_power) - r_1) / (r_1 - r_2);
+				K_r = 1 - radius_ratio * radius_ratio;
+				K_r *= K_r;
+			}
+
+			double val = (sigma_6_power / radius_6_power);
+			potential += (a * a - a) * K_r;
 		}
 		in_state.force_x[particle_i] = force_multiplier * sum_x;
 		in_state.force_y[particle_i] = force_multiplier * sum_y;
 	}
+	potential /= 2; // Взаимодействие между 2 частицами считалось дважды
+	potential *= 4 * D;
 }
 
 
@@ -242,8 +267,22 @@ void Particles_and_processing::simple_initial_state(
 	// Расчет сил
 	double cell_width = border.x_end - border.x_start;
 	double cell_height = border.y_end - border.y_start;
-	force_calculation(state, cell_width, cell_height);
+	double potential = force_calculation(state, cell_width, cell_height);
 
+	// V^2 средняя
+	double average_speed_power2 = square_average_speed(
+		state.speed_x, state.speed_y);
+
+	// Заполнение энргии
+	double kinetic = kinetic_energy_of_system(average_speed_power2);
+	double total = kinetic + potential;
+
+	energy_kinetic.push_back(kinetic);
+	energy_potential.push_back(potential);
+	energy_total.push_back(total);
+
+	// Заполнение энтальпии
+	enthalpy.push_back(total + calculation_PV(in_temperature));
 }
 
 void position_in_cell(double& coordinate, double& cell_min, double& cell_max, double& size) {
@@ -254,14 +293,14 @@ void position_in_cell(double& coordinate, double& cell_min, double& cell_max, do
 }
 
 /*   Расчет следующего положения    */
-Particle_State Particles_and_processing::next_state(Particle_State& old_state, double& time) {
+void Particles_and_processing::next_state(Particle_State& old_state, double& time) {
 	// Создаем новое состояние
 	Particle_State new_state;
 
 	if (old_state.x.empty() || old_state.y.empty() ||
 		old_state.speed_x.empty() || old_state.speed_y.empty() ||
 		old_state.force_x.empty() || old_state.force_y.empty())
-		return new_state;
+		return ;
 
 	int particle_number = old_state.x.size(); // Кол-в частиц
 
@@ -285,7 +324,7 @@ Particle_State Particles_and_processing::next_state(Particle_State& old_state, d
 	}
 
 	// Расчитываем силы
-	force_calculation(new_state, cell_width, cell_height);
+	double potential = force_calculation(new_state, cell_width, cell_height);
 
 	// Расчитываем скорости
 	for (int i = 0; i < particle_number; i++) {
@@ -296,8 +335,29 @@ Particle_State Particles_and_processing::next_state(Particle_State& old_state, d
 			((new_state.force_y[i] - old_state.force_y[i]) / (2 * m)) * time;
 	}
 
+
+	// V^2 средняя
+	double average_speed_power2 = square_average_speed(
+		state.speed_x, state.speed_y);
+
+	// Заполнение энргии
+	double kinetic = kinetic_energy_of_system(average_speed_power2);
+	double total = kinetic + potential;
+
+	energy_kinetic.push_back(kinetic);
+	energy_potential.push_back(potential);
+	energy_total.push_back(total);
+
+	// Заполнение Среднего квадрата смещения R^2
+	double temperature_now = temperature_calculation(average_speed_power2);
+	double radius_displacement = average_square_displacement_calculation(old_state, new_state);
+	temperature.push_back(temperature_now);
+	average_square_displacement.push_back(radius_displacement);
+
+	// Заполнение энтальпии
+	enthalpy.push_back(total + calculation_PV(temperature_now));
+
 	state = new_state;
-	return new_state;
 }
 
 /* ДЛЯ ОТРИСОВКИ */
@@ -324,4 +384,127 @@ Vector2D Particles_and_processing::get_border_line() {
 // Получение вектора координат центров частиц
 Vector2D Particles_and_processing::get_center_particles() {
 	return Vector2D(state.x, state.y);
+}
+
+
+// V^2 средняя
+double Particles_and_processing::square_average_speed(
+	vector<double>& speed_x, vector<double>& speed_y) {
+	if (speed_x.empty() || speed_y.empty())
+		return 0.0;
+
+	int particle_number = speed_x.size(); // Кол-в частиц
+
+	// Суммируем квадрат скоростей
+	double sum_speeds = 0;
+	for (int i = 0; i < particle_number; i++) {
+		sum_speeds += speed_x[i] * speed_x[i] + speed_y[i] * speed_y[i];
+	}
+	sum_speeds /= particle_number; // Средний квадрат скорости
+	return sum_speeds;
+}
+
+// Энергия
+double Particles_and_processing::kinetic_energy_of_system(
+	vector<double>& speed_x, vector<double>& speed_y) {
+
+	if (speed_x.empty() || speed_y.empty())
+		return 0.0;
+
+	int particle_number = speed_x.size(); // Кол-в частиц
+
+	// Суммируем квадрат скоростей
+	double sum_speeds = 0;
+	for (int i = 0; i < particle_number; i++) {
+		sum_speeds += speed_x[i] * speed_x[i] + speed_y[i] * speed_y[i];
+	}
+	sum_speeds /= particle_number; // Средний квадрат скорости
+
+	return (m * sum_speeds) / 2;
+}
+double Particles_and_processing::kinetic_energy_of_system(double& square_average_speed) {
+	return (m * square_average_speed) / 2;
+}
+
+// PV
+double scalar_product(double& x1, double& y1, double& x2, double& y2) {
+	return x1 * x2 + y1 * y2;
+}
+
+double Particles_and_processing::calculation_PV(double& temperature) {
+	if (state.x.empty() || state.y.empty() ||
+		state.force_x.empty() || state.force_y.empty())
+		return 0.0;
+
+	int particle_number = state.x.size(); // Кол-в частиц
+
+	double val = 0;
+	for (int i = 0; i < particle_number; i++) {
+		// скалярное произведение
+		val += state.x[i] * state.force_x[i] + state.y[i] * state.force_y[i];
+	}
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	return particle_number * k * temperature + 0.5 * val;
+}
+
+// T
+double Particles_and_processing::temperature_calculation(
+	vector<double>& speed_x, vector<double>& speed_y) {
+
+	if (speed_x.empty() || speed_y.empty())
+		return 0.0;
+
+	/*
+
+	mV ^ 2   d
+	------ = - * k * Temperature; d - степень свободы
+	   2     2
+
+	Temperature = (m * V ^ 2) / ( d * k ) ; d = 1
+	Temperature = (m * V * V) / k
+
+	*/
+	int particle_number = speed_x.size(); // Кол-в частиц
+
+	// Суммируем квадрат скоростей
+	double sum_speeds = 0;
+	for (int i = 0; i < particle_number; i++) {
+		sum_speeds += speed_x[i] * speed_x[i] + speed_y[i] * speed_y[i];
+	}
+	sum_speeds /= particle_number; // Средний квадрат скорости
+
+	return (m * sum_speeds) / k;
+}
+double Particles_and_processing::temperature_calculation(double& square_average_speed) {
+	return (m * square_average_speed) / k;
+}
+
+// R^2
+double Particles_and_processing::average_square_displacement_calculation(
+	vector<double>& x_old, vector<double>& y_old,
+	vector<double>& x_new, vector<double>& y_new) {
+
+	if (x_old.empty() || y_old.empty() ||
+		x_new.empty() || y_new.empty())
+		return 0.0;
+
+	int particle_number = x_old.size(); // Кол-в частиц
+
+	double displacement = 0;
+
+	for (int i = 0; i < particle_number; i++) {
+		double difference_x = x_old[i] - x_new[i];
+		double difference_y = y_old[i] - y_new[i];
+		displacement = difference_x * difference_x + difference_y * difference_y;
+	}
+	return displacement / particle_number;
+}
+
+double Particles_and_processing::average_square_displacement_calculation(
+	Particle_State state_old,
+	Particle_State state_new) {
+	return average_square_displacement_calculation(
+		state_old.x, state_old.y,
+		state_new.x, state_new.y);
 }

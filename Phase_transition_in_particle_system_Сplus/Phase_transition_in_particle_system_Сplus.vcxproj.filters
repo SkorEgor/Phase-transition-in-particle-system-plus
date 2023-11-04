@@ -53,6 +53,9 @@
     <ClCompile Include="Particles_and_processing.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="AnimationFlow.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Phasetransitioninparticlesystemplus.rc">

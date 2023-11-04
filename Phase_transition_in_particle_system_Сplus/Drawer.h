@@ -113,7 +113,7 @@ public:
 		);
 	}
 
-	void Draw(Vector2D& border_line, Vector2D& center_particles, double unit_multiplier = 1)
+	void drawing_particles(Vector2D& border_line, Vector2D& center_particles, double unit_multiplier = 1)
 	{
 		if (!init) return;
 
@@ -130,22 +130,19 @@ public:
 		/*  Отрисовка Границы рассчетной ячейки  */
 		if (border_line.x.empty()) return;
 
-		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
-		memDC.SelectObject(&pen_red);
-
+		// НАЙДЕМ МАКС / МИН ДАННЫХ
 		double data_y_max(max_vector(border_line.y)), data_y_min(min_vector(border_line.y));
 		double data_x_max(max_vector(border_line.x)), data_x_min(min_vector(border_line.x));
 
+		// Конвектируем величины в величины элемента отрисовки
 		vector<double> y = convert_range(border_line.y, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
 		vector<double> x = convert_range(border_line.x, graph_param.actual_right, graph_param.actual_left, data_x_max, data_x_min);
 
-		memDC.MoveTo(x[0], y[0]);
-		for (unsigned int i = 0; i < y.size(); i++)
-		{
-			memDC.LineTo(x[i], y[i]);
-		}
+		// Рисуем линию границы
+		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
+		draw_line(memDC, x, y, data_pen_red);
 
-		// Отрисовка кружочков
+		/*   Отрисовка кружочков  */
 		CPen pen_green(PS_SOLID, 2, RGB(0, 128, 0));
 		memDC.SelectObject(&pen_green);
 		CBrush brush;
@@ -173,6 +170,178 @@ public:
 			data_x_min, data_x_max,
 			data_y_min, data_y_max,
 			unit_multiplier);
+
+		dc->BitBlt(0, 0, frame.Width(), frame.Height(), &memDC, 0, 0, SRCCOPY);
+	}
+
+	void drawing_energy(vector<double>& energy_kinetic, vector<double>& energy_potential, vector<double>& energy_total)
+	{
+		if (!init) return;
+
+		// Параметры области отрисовки
+		GraphicsParameters graph_param(frame.Height(), frame.Width());
+
+		// Белый фон.
+		memDC.FillSolidRect(frame, RGB(255, 255, 255));
+
+		// Рисуем сетку и подсетку.
+		grid(memDC, graph_param);
+
+
+		/*  Отрисовка Границы рассчетной ячейки  */
+		if (energy_kinetic.empty()) return;
+
+		// ПО ОСИ x - индексы, создадим данные
+		vector<double> data_x(energy_kinetic.size());
+		for (int i = 0; i < data_x.size(); i++)
+			data_x[i] = i;
+
+		// НАЙДЕМ МАКС / МИН ДАННЫХ
+
+		vector<double> y_max_vector = { max_vector(energy_kinetic), max_vector(energy_potential) , max_vector(energy_total) };
+		vector<double> y_min_vector = { min_vector(energy_kinetic), min_vector(energy_potential) , min_vector(energy_total) };
+
+
+		double data_y_max = max_vector(y_max_vector);
+		double data_y_min = max_vector(y_min_vector);
+		double data_x_max(data_x.size()-1), data_x_min(0.0);
+
+		// Конвектируем величины в величины элемента отрисовки
+		vector<double> kinetic = convert_range(energy_kinetic, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		vector<double> potential = convert_range(energy_potential, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		vector<double> total = convert_range(energy_total, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		vector<double> x = convert_range(data_x, graph_param.actual_right, graph_param.actual_left, data_x_max, data_x_min);
+
+		// Выбираем ручки
+		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
+		CPen data_blue_green(PS_SOLID, 2, RGB(38, 0, 255));
+		CPen data_pen_green(PS_SOLID, 2, RGB(0, 128, 0));
+
+		// Рисуем графики
+		draw_line(memDC, x, kinetic, data_pen_red);
+		draw_line(memDC, x, potential, data_blue_green);
+		draw_line(memDC, x, total, data_pen_green);
+
+		// Подписываем оси
+		double unit_multiplier = 1e23;
+		axis_signature(
+			memDC, graph_param,
+			data_x_min, data_x_max,
+			data_y_min, data_y_max,
+			unit_multiplier, true);
+
+		dc->BitBlt(0, 0, frame.Width(), frame.Height(), &memDC, 0, 0, SRCCOPY);
+	}
+
+	void drawing_bias(vector<double>& data_x, vector<double>& data_y)
+	{
+		if (!init) return;
+
+		// Параметры области отрисовки
+		GraphicsParameters graph_param(frame.Height(), frame.Width());
+
+		// Белый фон.
+		memDC.FillSolidRect(frame, RGB(255, 255, 255));
+
+		// Рисуем сетку и подсетку.
+		grid(memDC, graph_param);
+
+
+		/*  Отрисовка Границы рассчетной ячейки  */
+		if (data_x.empty()) return;
+
+
+		// НАЙДЕМ МАКС / МИН ДАННЫХ
+
+		// НАЙДЕМ МАКС / МИН ДАННЫХ
+		double data_y_max(max_vector(data_y)), data_y_min(min_vector(data_y));
+		double data_x_max(max_vector(data_x)), data_x_min(min_vector(data_x));
+
+		// Конвектируем величины в величины элемента отрисовки
+		vector<double> y = convert_range(data_y, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		vector<double> x = convert_range(data_x, graph_param.actual_right, graph_param.actual_left, data_x_max, data_x_min);
+
+		// Выбираем ручки
+		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
+
+		// Рисуем графики
+		draw_line(memDC, x, y, data_pen_red);
+
+		// Подписываем оси
+		double unit_multiplier = 1e28;
+		axis_signature(
+			memDC, graph_param,
+			data_x_min, data_x_max,
+			data_y_min, data_y_max,
+			unit_multiplier, true);
+
+		dc->BitBlt(0, 0, frame.Width(), frame.Height(), &memDC, 0, 0, SRCCOPY);
+	}
+
+	void drawing_energy_and_enthalpy(
+		vector<double>& energy_kinetic, vector<double>& energy_potential,
+		vector<double>& energy_total, vector<double>& data_enthalpy)
+	{
+		if (!init) return;
+
+		// Параметры области отрисовки
+		GraphicsParameters graph_param(frame.Height(), frame.Width());
+
+		// Белый фон.
+		memDC.FillSolidRect(frame, RGB(255, 255, 255));
+
+		// Рисуем сетку и подсетку.
+		grid(memDC, graph_param);
+
+
+		/*  Отрисовка Границы рассчетной ячейки  */
+		if (energy_kinetic.empty()) return;
+
+		// ПО ОСИ x - индексы, создадим данные
+		vector<double> data_x(energy_kinetic.size());
+		for (int i = 0; i < data_x.size(); i++)
+			data_x[i] = i;
+
+		// НАЙДЕМ МАКС / МИН ДАННЫХ
+
+		vector<double> y_max_vector = { max_vector(energy_kinetic), max_vector(energy_potential) , max_vector(energy_total) , max_vector(data_enthalpy) };
+		vector<double> y_min_vector = { min_vector(energy_kinetic), min_vector(energy_potential) , min_vector(energy_total) , min_vector(data_enthalpy) };
+
+
+		double data_y_max = max_vector(y_max_vector);
+		double data_y_min = max_vector(y_min_vector);
+		double data_x_max(data_x.size() - 1), data_x_min(0.0);
+
+		// Конвектируем величины в величины элемента отрисовки
+		vector<double> kinetic = convert_range(energy_kinetic, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		vector<double> potential = convert_range(energy_potential, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		vector<double> total = convert_range(energy_total, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+
+		vector<double> enthalpy = convert_range(data_enthalpy, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+
+		vector<double> x = convert_range(data_x, graph_param.actual_right, graph_param.actual_left, data_x_max, data_x_min);
+
+		// Выбираем ручки
+		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
+		CPen data_pen_blue(PS_SOLID, 2, RGB(38, 0, 255));
+		CPen data_pen_green(PS_SOLID, 2, RGB(0, 128, 0));
+
+		CPen data_pen_orange(PS_SOLID, 2, RGB(255, 165, 0));
+
+		// Рисуем графики
+		draw_line(memDC, x, kinetic, data_pen_red);
+		draw_line(memDC, x, potential, data_pen_blue);
+		draw_line(memDC, x, total, data_pen_green);
+
+		draw_line(memDC, x, enthalpy, data_pen_orange);
+
+		// Подписываем оси
+		double unit_multiplier = 1e23;
+		axis_signature(
+			memDC, graph_param,
+			data_x_min, data_x_max,
+			data_y_min, data_y_max,
+			unit_multiplier, true);
 
 		dc->BitBlt(0, 0, frame.Width(), frame.Height(), &memDC, 0, 0, SRCCOPY);
 	}
@@ -209,6 +378,7 @@ public:
 		double data_x_min, double data_x_max,
 		double data_y_min, double data_y_max,
 		double& unit_multiplier,
+		bool ignore_multiplier_x = false,
 		unsigned int grid_size = 10) {
 
 		CFont font;
@@ -229,7 +399,7 @@ public:
 		for (int i = 0; i < grid_size / 2 + 1; i++)
 		{
 			CString str;
-			str.Format(L"%.3f", unit_multiplier * (data_x_min + i * (data_x_max - data_x_min) / (grid_size / 2)));
+			str.Format((ignore_multiplier_x ? L"%.0f" : L"%.3f"), (ignore_multiplier_x?1: unit_multiplier)* (data_x_min + i * (data_x_max - data_x_min) / (grid_size / 2)));
 			memDC.TextOutW(
 				param.actual_left + (double)i * param.actual_width / (grid_size / 2) - param.bottom_keys_padding,
 				param.actual_bottom + param.bottom_keys_padding / 2, str);
@@ -252,6 +422,18 @@ public:
 		double& x_0, double& y_0,
 		double x_radius, double y_radius) {
 		memDC.Ellipse(x_0 - x_radius, y_0 - y_radius, x_0 + x_radius, y_0 + y_radius);
+	}
+
+	void draw_line(CDC& memDC,
+		vector<double>& x, vector<double>& y, 
+		CPen& data_pen) {
+
+		memDC.SelectObject(&data_pen);
+		memDC.MoveTo(x[0], y[0]);
+		for (unsigned int i = 0; i < y.size(); i++)
+		{
+			memDC.LineTo(x[i], y[i]);
+		}
 	}
 
 
