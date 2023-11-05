@@ -35,6 +35,7 @@ protected:
 public:
 	Drawer drawer_particle;
 	Drawer drawer_energy;
+	Drawer drawer_enthalpy;
 	Drawer bias;
 	void startAnimationFlow();
 	void finishAnimationFlow();
@@ -43,4 +44,5 @@ public:
 	afx_msg void OnBnClickedButton2();
 	CStatic display_picture_2;
 	CStatic display_picture_3;
+	CStatic display_picture_4;
 };

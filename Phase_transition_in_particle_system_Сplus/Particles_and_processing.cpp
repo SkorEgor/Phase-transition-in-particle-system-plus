@@ -282,7 +282,8 @@ void Particles_and_processing::simple_initial_state(
 	energy_total.push_back(total);
 
 	// Заполнение энтальпии
-	enthalpy.push_back(total + calculation_PV(in_temperature));
+	enthalpy_a.push_back(total);// total + calculation_PV(in_temperature));
+	enthalpy_b.push_back(total);
 }
 
 void position_in_cell(double& coordinate, double& cell_min, double& cell_max, double& size) {
@@ -306,6 +307,9 @@ void Particles_and_processing::next_state(Particle_State& old_state, double& tim
 
 	new_state.resize(particle_number);
 
+	// Для расчета давления вводим импуль через границу
+	//double flux_x = 0;
+	//double flux_y = 0;
 	// Задаем координаты
 	double cell_width = border.x_end - border.x_start;
 	double cell_height = border.y_end - border.y_start;
@@ -319,9 +323,33 @@ void Particles_and_processing::next_state(Particle_State& old_state, double& tim
 			(old_state.force_y[i] / (2 * m)) * time * time;
 
 		// Проверка на положение частицы в ячейке
-		position_in_cell(new_state.x[i], border.x_start, border.x_end, cell_width);
-		position_in_cell(new_state.y[i], border.y_start, border.y_end, cell_height);
+		// x
+		if (new_state.x[i] < border.x_start) {
+			new_state.x[i] += cell_width;
+			flux_x -= old_state.speed_x[i];
+		}
+		else if (new_state.x[i] > border.x_end) {
+			new_state.x[i] -= cell_width;
+			flux_x += old_state.speed_x[i];
+		}
+		// y
+		if (new_state.y[i] < border.y_start) {
+			new_state.y[i] += cell_height;
+			flux_y -= old_state.speed_y[i];
+			cout<< - old_state.speed_y[i];
+		}
+		else if (new_state.y[i] > border.y_end) {
+			new_state.y[i] -= cell_height;
+			flux_y += old_state.speed_y[i];
+		}
 	}
+	// Давление
+	all_time += time;
+	double presure = (
+		(flux_x / (2 * cell_width)) + (flux_y / (2 * cell_height))
+		) / all_time;
+	// PV
+	double presure_on_size = presure *(cell_width * cell_height);
 
 	// Расчитываем силы
 	double potential = force_calculation(new_state, cell_width, cell_height);
@@ -355,7 +383,8 @@ void Particles_and_processing::next_state(Particle_State& old_state, double& tim
 	average_square_displacement.push_back(radius_displacement);
 
 	// Заполнение энтальпии
-	enthalpy.push_back(total + calculation_PV(temperature_now));
+	enthalpy_a.push_back(total + presure_on_size);//total + calculation_PV(temperature_now));// , old_state, new_state));
+	//enthalpy_b.push_back(total + calculation_PV(temperature_now));
 
 	state = new_state;
 }
@@ -438,14 +467,44 @@ double Particles_and_processing::calculation_PV(double& temperature) {
 
 	int particle_number = state.x.size(); // Кол-в частиц
 
-	double val = 0;
+	double virial = 0;
 	for (int i = 0; i < particle_number; i++) {
 		// скалярное произведение
-		val += state.x[i] * state.force_x[i] + state.y[i] * state.force_y[i];
+		virial += state.x[i] * state.force_x[i] + state.y[i] * state.force_y[i];
 	}
 
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	return particle_number * k * temperature + 0.5 * val;
+	return particle_number * temperature + 0.5 * virial;
+}
+
+double virial_force(Particle_State& in_state) {
+	int particle_number = in_state.x.size(); // Кол-в частиц
+
+	double val = 0;
+	for (int i = 0; i < particle_number; i++) {
+		// скалярное произведение
+		val += in_state.x[i] * in_state.force_x[i] + in_state.y[i] * in_state.force_y[i];
+	}
+
+	return val;
+}
+
+double Particles_and_processing::calculation_PV2(double& temperature,
+	Particle_State& old_state, Particle_State&  new_state) {
+	if (old_state.x.empty() || old_state.y.empty() ||
+		old_state.force_x.empty() || old_state.force_y.empty())
+		return 0.0;
+
+	if (new_state.x.empty() || new_state.y.empty() ||
+		new_state.force_x.empty() || new_state.force_y.empty())
+		return 0.0;
+
+	int particle_number = new_state.x.size(); // Кол-в частиц
+
+	double old_virial = virial_force(old_state);
+	double new_virial = virial_force(new_state);
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	return particle_number * k * temperature + 0.5 * (old_virial + new_virial) / 2.;
 }
 
 // T

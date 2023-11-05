@@ -68,10 +68,16 @@ public:
 
 	// ’арактеристики системы
 	vector<double> energy_kinetic, energy_potential, energy_total; // Ёнергии
-	vector<double> enthalpy;	// Ёнтальпи€
 	vector<double> temperature;	// “емпераура 
 	vector<double> average_square_displacement = {0}; // —редний квадрат смещени€ R^2
-
+	
+	// Ёнтальпи€ A
+	vector<double> enthalpy_a;	
+	double all_time = 0;
+	double flux_x = 0;
+	double flux_y = 0;
+	// Ёнтальпи€ B
+	vector<double> enthalpy_b;
 
 	// —осто€ние системы: координты, скорости, силы
 	Particle_State state;
@@ -103,8 +109,10 @@ private:
 	double kinetic_energy_of_system(
 		vector<double>& speed_x, vector<double>& speed_y);
 	double kinetic_energy_of_system(double& square_average_speed);
-	// PV
+	// PV через вериала
 	double calculation_PV(double& temperature);
+	double calculation_PV2(double& temperature,
+		Particle_State& old_state, Particle_State& new_state);
 	// T
 	double temperature_calculation(
 		vector<double>& speed_x, vector<double>& speed_y);

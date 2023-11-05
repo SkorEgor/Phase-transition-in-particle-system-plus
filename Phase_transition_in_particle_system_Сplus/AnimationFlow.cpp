@@ -42,7 +42,7 @@ DWORD WINAPI animationThread(LPVOID t)
 	//Зададим начальную вероятность
 	Particles_and_processing start_particles;
 
-	start_particles.simple_initial_state(20, 10);
+	start_particles.simple_initial_state(20, 300);
 
 	//Задержка между кадрами
 	int delTime = 0;
@@ -65,11 +65,13 @@ DWORD WINAPI animationThread(LPVOID t)
 		}
 		thisWind->drawer_particle.drawing_particles(start_particles.get_border_line(),
 			start_particles.get_center_particles(), 1e9);
-		thisWind->drawer_energy.drawing_energy_and_enthalpy(
+		thisWind->drawer_energy.drawing_energy(
 			start_particles.energy_kinetic,
 			start_particles.energy_potential,
-			start_particles.energy_total,
-			start_particles.enthalpy
+			start_particles.energy_total
+		);
+		thisWind->drawer_enthalpy.drawing_enthalpy(
+			start_particles.enthalpy_a
 		);
 		thisWind->bias.drawing_bias(
 			start_particles.temperature,

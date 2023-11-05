@@ -203,7 +203,7 @@ public:
 
 
 		double data_y_max = max_vector(y_max_vector);
-		double data_y_min = max_vector(y_min_vector);
+		double data_y_min = min_vector(y_min_vector);
 		double data_x_max(data_x.size()-1), data_x_min(0.0);
 
 		// Конвектируем величины в величины элемента отрисовки
@@ -213,14 +213,16 @@ public:
 		vector<double> x = convert_range(data_x, graph_param.actual_right, graph_param.actual_left, data_x_max, data_x_min);
 
 		// Выбираем ручки
+		CPen data_pen_green(PS_SOLID, 4, RGB(0, 128, 0));
+		CPen data_pen_blue(PS_SOLID, 2, RGB(38, 0, 255));
 		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
-		CPen data_blue_green(PS_SOLID, 2, RGB(38, 0, 255));
-		CPen data_pen_green(PS_SOLID, 2, RGB(0, 128, 0));
+
 
 		// Рисуем графики
-		draw_line(memDC, x, kinetic, data_pen_red);
-		draw_line(memDC, x, potential, data_blue_green);
 		draw_line(memDC, x, total, data_pen_green);
+		draw_line(memDC, x, potential, data_pen_blue);
+		draw_line(memDC, x, kinetic, data_pen_red);
+		
 
 		// Подписываем оси
 		double unit_multiplier = 1e23;
@@ -309,7 +311,7 @@ public:
 
 
 		double data_y_max = max_vector(y_max_vector);
-		double data_y_min = max_vector(y_min_vector);
+		double data_y_min = min_vector(y_min_vector);
 		double data_x_max(data_x.size() - 1), data_x_min(0.0);
 
 		// Конвектируем величины в величины элемента отрисовки
@@ -326,7 +328,7 @@ public:
 		CPen data_pen_blue(PS_SOLID, 2, RGB(38, 0, 255));
 		CPen data_pen_green(PS_SOLID, 2, RGB(0, 128, 0));
 
-		CPen data_pen_orange(PS_SOLID, 2, RGB(255, 165, 0));
+		CPen data_pen_orange(PS_SOLID, 4, RGB(255, 165, 0));
 
 		// Рисуем графики
 		draw_line(memDC, x, kinetic, data_pen_red);
@@ -337,6 +339,67 @@ public:
 
 		// Подписываем оси
 		double unit_multiplier = 1e23;
+		axis_signature(
+			memDC, graph_param,
+			data_x_min, data_x_max,
+			data_y_min, data_y_max,
+			unit_multiplier, true);
+
+		dc->BitBlt(0, 0, frame.Width(), frame.Height(), &memDC, 0, 0, SRCCOPY);
+	}
+
+	void drawing_enthalpy(
+		vector<double>& data_enthalpy_a)
+	{
+		if (!init) return;
+
+		// Параметры области отрисовки
+		GraphicsParameters graph_param(frame.Height(), frame.Width());
+
+		// Белый фон.
+		memDC.FillSolidRect(frame, RGB(255, 255, 255));
+
+		// Рисуем сетку и подсетку.
+		grid(memDC, graph_param);
+
+
+		/*  Отрисовка Границы рассчетной ячейки  */
+		if (data_enthalpy_a.empty()) return;
+
+		// ПО ОСИ x - индексы, создадим данные
+		vector<double> data_x(data_enthalpy_a.size());
+		for (int i = 0; i < data_x.size(); i++)
+			data_x[i] = i;
+
+		// НАЙДЕМ МАКС / МИН ДАННЫХ
+
+		vector<double> y_max_vector = { max_vector(data_enthalpy_a)};
+		vector<double> y_min_vector = { min_vector(data_enthalpy_a) };
+
+
+		double data_y_max = max_vector(y_max_vector);
+		double data_y_min = min_vector(y_min_vector);
+		double data_x_max(data_x.size() - 1), data_x_min(0.0);
+
+		// Конвектируем величины в величины элемента отрисовки
+		vector<double> enthalpy_a = convert_range(data_enthalpy_a, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+		//vector<double> enthalpy_b = (!data_enthalpy_a.empty()) vector<double> enthalpy_b = convert_range(data_enthalpy_b, graph_param.actual_top, graph_param.actual_bottom, data_y_max, data_y_min);
+
+		vector<double> x = convert_range(data_x, graph_param.actual_right, graph_param.actual_left, data_x_max, data_x_min);
+
+		// Выбираем ручки
+		CPen data_pen_red(PS_SOLID, 2, RGB(255, 0, 0));
+		CPen data_pen_blue(PS_SOLID, 2, RGB(38, 0, 255));
+		CPen data_pen_green(PS_SOLID, 2, RGB(0, 128, 0));
+
+		CPen data_pen_orange(PS_SOLID, 4, RGB(255, 165, 0));
+
+		// Рисуем графики
+		draw_line(memDC, x, enthalpy_a, data_pen_red);
+		//if (!data_enthalpy_a.empty()) draw_line(memDC, x, enthalpy_b, data_pen_blue);
+
+		// Подписываем оси
+		double unit_multiplier = 1;
 		axis_signature(
 			memDC, graph_param,
 			data_x_min, data_x_max,

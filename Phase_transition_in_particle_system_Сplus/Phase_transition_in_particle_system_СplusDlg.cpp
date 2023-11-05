@@ -71,6 +71,7 @@ void CPhasetransitioninparticlesystemСplusDlg::DoDataExchange(CDataExchange* pD
 	DDX_Control(pDX, IDC_GRAPH, display_picture);
 	DDX_Control(pDX, IDC_GRAPH2, display_picture_2);
 	DDX_Control(pDX, IDC_GRAPH3, display_picture_3);
+	DDX_Control(pDX, IDC_GRAPH4, display_picture_4);
 }
 
 BEGIN_MESSAGE_MAP(CPhasetransitioninparticlesystemСplusDlg, CDialogEx)
@@ -116,6 +117,7 @@ BOOL CPhasetransitioninparticlesystemСplusDlg::OnInitDialog()
 	// TODO: добавьте дополнительную инициализацию
 	drawer_particle.Create(GetDlgItem(IDC_GRAPH)->GetSafeHwnd());
 	drawer_energy.Create(GetDlgItem(IDC_GRAPH2)->GetSafeHwnd());
+	drawer_enthalpy.Create(GetDlgItem(IDC_GRAPH4)->GetSafeHwnd());
 	bias.Create(GetDlgItem(IDC_GRAPH3)->GetSafeHwnd());
 
 	return TRUE;  // возврат значения TRUE, если фокус не передан элементу управления
@@ -229,7 +231,13 @@ void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton1()
 	}*/
 	drawer_particle.drawing_particles(start_particles.get_border_line(), start_particles.get_center_particles(), 1e9);
 
+	int i = 0; // Начало
+	while (i < 6) {	// Конец
+		// Тело цикла
+		cout << i << "";
 
+		i += 1;	// Шаг
+	}
 }
 
 
