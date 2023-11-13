@@ -66,6 +66,13 @@ public:
 	// Граница расчетной ячейки
 	Border border;	
 
+	// Шагов между нормировками
+	double true_temperature;
+	int iteration = 1;
+	int normalization_step = 1000;
+	double offset_spped = 0;
+	int count_sum = 1;
+
 	// Характеристики системы
 	vector<double> energy_kinetic, energy_potential, energy_total; // Энергии
 	vector<double> temperature;	// Темпераура 
@@ -83,9 +90,6 @@ public:
 	Particle_State state;
 
 private:
-	// Возвращает число частиц, по числу частиц в ширину
-	int number_of_particles(int number_elements_on_side);
-
 	// Заполнение координат частиц
 	vector<double> generate_coordinates_x(
 		int& all_particles, int& number_elements_on_side,
@@ -95,7 +99,7 @@ private:
 		double step, double coordinate_start);
 
 	// Заполнение скорости
-	void speed_normalization(vector<double>& speed);
+	void zero_impuls(vector<double>& speed);
 	void starting_speed(
 		double& temperature, int& all_particles,
 		vector<double>& speed_x, vector<double>& speed_y);
@@ -126,20 +130,32 @@ private:
 		Particle_State state_new);
 
 public:
+	// Возвращает число частиц, по числу частиц в ширину
+	int number_of_particles(int number_elements_on_side);
+
 	// Начальное состояние
 	void simple_initial_state(
 		int number_elements_on_side,
-		double temperature
+		double temperature,
+		int in_normalization_step
 	);
 	
 	// Следующее положение системы
 	void next_state(Particle_State& old_state, double& time);
+	void next_state_2(double& time);
 
 	// Нормировка
 	void all_speed_normalization();
 
+	// Среднее значение вектора
+	static double vector_average(vector<double>& mass);
+
 	// Получение данных для отрисовки
 	Vector2D get_border_line();
 	Vector2D get_center_particles();
+
+	// Для сброс векторов параметров системы до последнего элемента
+	// Используется после выхода на равновесное состояние
+	void leave_last_state();
 };
 

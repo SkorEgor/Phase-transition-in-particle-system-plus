@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Particles_and_processing.h"
+#include <ctime>
 
 // Расчет колличества частиц
 int Particles_and_processing::number_of_particles(
@@ -95,6 +96,7 @@ vector<double> Particles_and_processing::generate_coordinates_y(
 /*   СКОРОСТИ   */
 // Равномерное распределение [0;1)
 double uniform_random_distribution() {
+
 	int n = 12;
 	double val = 0.;
 	for (int i = 0; i < n; i++) {
@@ -104,7 +106,7 @@ double uniform_random_distribution() {
 }
 
 // Нормировка
-void Particles_and_processing::speed_normalization(vector<double>& speed) {
+void Particles_and_processing::zero_impuls(vector<double>& speed) {
 	int all_particles = speed.size();
 	// Сумма скоростей
 	double sum_speed = 0;
@@ -119,15 +121,11 @@ void Particles_and_processing::speed_normalization(vector<double>& speed) {
 	}
 }
 
-void Particles_and_processing::all_speed_normalization() {
-	speed_normalization(state.speed_x);
-	speed_normalization(state.speed_y);
-}
-
 // Задание скоростей x,y
 void Particles_and_processing::starting_speed(
 	double& temperature, int& all_particles,
 	vector<double>& speed_x, vector<double>& speed_y) {
+	srand(time(0));
 	/*
 
 	mV ^ 2   d
@@ -140,7 +138,7 @@ void Particles_and_processing::starting_speed(
 	*/
 
 	// Находим модуль скорости
-	double speed_module = sqrt((k * temperature) / m);
+	double speed_module = sqrt((2*k * temperature) / m);
 
 	// Задаем вектора скоростей
 	// Очищаем от старых координат
@@ -160,14 +158,15 @@ void Particles_and_processing::starting_speed(
 	}
 
 	// Нормировка
-	speed_normalization(speed_x);
-	speed_normalization(speed_y);
+	zero_impuls(speed_x);
+	zero_impuls(speed_y);
 }
 
 /*   СИЛЫ   */
 // Возвращает потенциальную энергию
 double Particles_and_processing::force_calculation(Particle_State& in_state,
 	double& cell_width, double& cell_height) {
+
 	if (in_state.x.empty() || in_state.y.empty())
 		return 0.0;
 
@@ -206,24 +205,25 @@ double Particles_and_processing::force_calculation(Particle_State& in_state,
 			double radius_2_power = difference_x * difference_x + difference_y * difference_y;
 			double radius_6_power = radius_2_power * radius_2_power * radius_2_power;
 
-			sum_x += (a_6_power / (radius_6_power)-1) *
+			sum_x += ((a_6_power / radius_6_power) - 1) *
 				(difference_x / (radius_6_power * radius_2_power));
-			sum_y += (a_6_power / (radius_6_power)-1) *
+			sum_y += ((a_6_power / radius_6_power) - 1) *
 				(difference_y / (radius_6_power * radius_2_power));
 
 			// Расчет потенциальной энергии
 			double K_r = 0;
-			if (K_r <= r_1) {
+			double radius = sqrt(radius_2_power);
+			if (radius <= r_1) {
 				K_r = 1;
 			}
-			else if (K_r <= r_2) {
+			else if (radius <= r_2) {
 				double radius_ratio = (sqrt(radius_2_power) - r_1) / (r_1 - r_2);
 				K_r = 1 - radius_ratio * radius_ratio;
 				K_r *= K_r;
 			}
 
 			double val = (sigma_6_power / radius_6_power);
-			potential += (a * a - a) * K_r;
+			potential += (val * val - val) * K_r;
 		}
 		in_state.force_x[particle_i] = force_multiplier * sum_x;
 		in_state.force_y[particle_i] = force_multiplier * sum_y;
@@ -236,8 +236,12 @@ double Particles_and_processing::force_calculation(Particle_State& in_state,
 /*   НАЧАЛЬНОЕ СОСТОЯНИЕ   */
 void Particles_and_processing::simple_initial_state(
 	int number_elements_on_side,
-	double in_temperature
+	double in_temperature,
+	int in_normalization_step
 ) {
+	true_temperature = in_temperature;
+	normalization_step = in_normalization_step;
+
 	// Шаги по сетки
 	double step_x = a;
 	double step_y = a * sqrt(3) / 2.;
@@ -274,7 +278,13 @@ void Particles_and_processing::simple_initial_state(
 		state.speed_x, state.speed_y);
 
 	// Заполнение энргии
-	double kinetic = kinetic_energy_of_system(average_speed_power2);
+	// Суммируем квадрат скоростей
+	double sum_speeds = 0;
+	for (int i = 0; i < all_particles; i++) {
+		sum_speeds += state.speed_x[i] * state.speed_x[i] +
+			state.speed_y[i] * state.speed_y[i];
+	}
+	double kinetic = m * sum_speeds / 2;
 	double total = kinetic + potential;
 
 	energy_kinetic.push_back(kinetic);
@@ -343,6 +353,9 @@ void Particles_and_processing::next_state(Particle_State& old_state, double& tim
 			flux_y += old_state.speed_y[i];
 		}
 	}
+
+
+
 	// Давление
 	all_time += time;
 	double presure = (
@@ -385,6 +398,162 @@ void Particles_and_processing::next_state(Particle_State& old_state, double& tim
 	// Заполнение энтальпии
 	enthalpy_a.push_back(total + presure_on_size);//total + calculation_PV(temperature_now));// , old_state, new_state));
 	//enthalpy_b.push_back(total + calculation_PV(temperature_now));
+
+
+	// Нормировка скоростей
+	// 1. Средняя квадрата скоростей
+	
+	double sum_speed = 0;
+	for (int i = 0; i < particle_number; i++) {
+		sum_speed += new_state.speed_x[i] * new_state.speed_x[i] +
+			new_state.speed_y[i] * new_state.speed_y[i];
+	}
+	sum_speed /= particle_number;
+	// 2. Запоминаем для среднения
+	offset_spped += sum_speed;
+
+	// 3. Если нужно нормировать
+	if (iteration % normalization_step == 0) {
+		// 1) Считаем среднее по времени
+		offset_spped /= normalization_step;
+		// 2) Нормирующий множитель
+		double koof_normalization = sqrt((2 * particle_number * k * true_temperature) /
+			(m * offset_spped));
+		// 3) Перебираем скорости и домножаем
+		for (int i = 0; i < particle_number; i++) {
+			new_state.speed_x[i] *= koof_normalization;
+			new_state.speed_y[i] *= koof_normalization;
+		}
+		// 4) Обнуляем среднюю скорость
+		offset_spped = 0;
+	}
+	iteration++;
+	
+	state = new_state;
+}
+
+void Particles_and_processing::next_state_2(double& time) {
+	// Создаем новое состояние
+	Particle_State new_state;
+
+	if (state.x.empty() || state.y.empty() ||
+		state.speed_x.empty() || state.speed_y.empty() ||
+		state.force_x.empty() || state.force_y.empty())
+		return;
+
+	int particle_number = state.x.size(); // Кол-в частиц
+
+	new_state.resize(particle_number);
+
+	// Для расчета давления вводим импуль через границу
+	//double flux_x = 0;
+	//double flux_y = 0;
+	// Задаем координаты
+	double cell_width = border.x_end - border.x_start;
+	double cell_height = border.y_end - border.y_start;
+	for (int i = 0; i < particle_number; i++) {
+		// Расчет новых координат по старому состоянию
+		new_state.x[i] = state.x[i] +
+			state.speed_x[i] * time +
+			(state.force_x[i] / (2 * m)) * time * time;
+
+		new_state.y[i] = state.y[i] +
+			state.speed_y[i] * time +
+			(state.force_y[i] / (2 * m)) * time * time;
+
+		// Проверка на положение частицы в ячейке
+		// x
+		if (new_state.x[i] < border.x_start) {
+			new_state.x[i] += cell_width;
+			flux_x -= state.speed_x[i];	// Импульс с которым произошел переход через границу
+		}
+		else if (new_state.x[i] > border.x_end) {
+			new_state.x[i] -= cell_width;
+			flux_x += state.speed_x[i];	// Импульс с которым произошел переход через границу
+		}
+		// y
+		if (new_state.y[i] < border.y_start) {
+			new_state.y[i] += cell_height;
+			flux_y -= state.speed_y[i];	// Импульс с которым произошел переход через границу
+		}
+		else if (new_state.y[i] > border.y_end) {
+			new_state.y[i] -= cell_height;
+			flux_y += state.speed_y[i];	// Импульс с которым произошел переход через границу
+		}
+	}
+
+
+
+	// Давление
+	all_time += time;
+	double presure = (
+		(flux_x / (2 * cell_width)) + (flux_y / (2 * cell_height))
+		) / all_time;
+	// PV
+	double presure_on_size = presure * (cell_width * cell_height);
+
+	// Расчитываем силы
+	double potential = force_calculation(new_state, cell_width, cell_height);
+
+	// Расчитываем скорости
+	for (int i = 0; i < particle_number; i++) {
+		new_state.speed_x[i] = state.speed_x[i] +
+			((new_state.force_x[i] + state.force_x[i]) / (2 * m)) * time;
+
+		new_state.speed_y[i] = state.speed_y[i] +
+			((new_state.force_y[i] + state.force_y[i]) / (2 * m)) * time;
+	}
+
+
+	// V^2 средняя
+	double average_speed_power2 = square_average_speed(
+		new_state.speed_x, new_state.speed_y);
+
+	// Суммируем квадрат скоростей
+	double sum_speeds = 0;
+	for (int i = 0; i < particle_number; i++) {
+		sum_speeds += new_state.speed_x[i] * new_state.speed_x[i] +
+			new_state.speed_y[i] * new_state.speed_y[i];
+	}
+	double kinetic = m * sum_speeds /2;
+	double total = kinetic + potential;
+
+	energy_kinetic.push_back(kinetic);
+	energy_potential.push_back(potential);
+	energy_total.push_back(total);
+
+	// Заполнение Среднего квадрата смещения R^2
+	double temperature_now = temperature_calculation(average_speed_power2);
+	double radius_displacement = average_square_displacement_calculation(state, new_state);
+	temperature.push_back(temperature_now);
+	average_square_displacement.push_back(radius_displacement);
+
+	// Заполнение энтальпии
+	enthalpy_a.push_back(total + presure_on_size);//total + calculation_PV(temperature_now));// , old_state, new_state));
+	//enthalpy_b.push_back(total + calculation_PV(temperature_now));
+
+
+	// Нормировка скоростей
+	// 1.Запоминаем Средняя квадрата скоростей
+	offset_spped += average_speed_power2;
+
+	// 3. Если нужно нормировать
+	if (iteration % normalization_step == 0) {
+		// 1) Считаем среднее по времени
+		offset_spped /= normalization_step;
+		// 2) Нормирующий множитель
+		double koof_normalization = sqrt(( k * true_temperature) /
+			(m * offset_spped));
+		// 3) Перебираем скорости и домножаем
+		for (int i = 0; i < particle_number; i++) {
+			new_state.speed_x[i] *= koof_normalization;
+			new_state.speed_y[i] *= koof_normalization;
+		}
+		// 4) Обнуляем среднюю скорость
+		offset_spped = 0;
+	}
+
+	iteration++;
 
 	state = new_state;
 }
@@ -567,3 +736,33 @@ double Particles_and_processing::average_square_displacement_calculation(
 		state_old.x, state_old.y,
 		state_new.x, state_new.y);
 }
+
+double Particles_and_processing::vector_average(vector<double>& mass) {
+	int N = mass.size();
+
+	double sum = 0;
+	for (int i = 0; i < N; i++) {
+		sum += mass[i];
+	}
+
+	return sum / N;
+}
+
+
+// Для сброс векторов параметров системы до последнего элемента
+// Используется после выхода на равновесное состояние
+void save_last(vector<double>& val) {
+	if (!val.empty())
+		val = vector<double>{ val[val.size() - 1] };
+}
+
+void Particles_and_processing::leave_last_state() {
+	save_last(energy_kinetic);
+	save_last(energy_potential);
+	save_last(energy_total);
+	save_last(temperature);
+	save_last(average_square_displacement);
+	save_last(enthalpy_a);
+	save_last(enthalpy_b);
+}
+

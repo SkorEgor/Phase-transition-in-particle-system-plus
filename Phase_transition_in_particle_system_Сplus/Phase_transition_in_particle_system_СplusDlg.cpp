@@ -18,7 +18,7 @@ using namespace std;
 #ifdef _DEBUG
 #define new DEBUG_NEW
 
-#pragma comment(linker,"/entry:WinMainCRTStartup /subsystem:console")
+//#pragma comment(linker,"/entry:WinMainCRTStartup /subsystem:console")
 #endif
 
 
@@ -61,6 +61,14 @@ END_MESSAGE_MAP()
 
 CPhasetransitioninparticlesystemСplusDlg::CPhasetransitioninparticlesystemСplusDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_PHASE_TRANSITION_IN_PARTICLE_SYSTEM_PLUS_DIALOG, pParent)
+	, input_model_temperature(100)
+	, input_model_particles_width(20)
+	, input_time_step(1e-14)
+	, input_animation_movement(TRUE)
+	, animation_graphics(TRUE)
+	, initial_iterations(1000)
+	, iteration_end(2000)
+	, normalization_step(10)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -72,6 +80,22 @@ void CPhasetransitioninparticlesystemСplusDlg::DoDataExchange(CDataExchange* pD
 	DDX_Control(pDX, IDC_GRAPH2, display_picture_2);
 	DDX_Control(pDX, IDC_GRAPH3, display_picture_3);
 	DDX_Control(pDX, IDC_GRAPH4, display_picture_4);
+	DDX_Text(pDX, IDC_EDIT1, input_model_temperature);
+	DDX_Text(pDX, IDC_EDIT2, input_model_particles_width);
+	DDX_Control(pDX, IDC_EDIT3, out_all_particles);
+	DDX_Text(pDX, IDC_EDIT5, input_time_step);
+	DDX_Check(pDX, IDC_CHECK1, input_animation_movement);
+	DDX_Check(pDX, IDC_CHECK2, animation_graphics);
+	DDX_Control(pDX, IDC_EDIT7, number_iterations);
+	DDX_Text(pDX, IDC_EDIT6, initial_iterations);
+	DDX_Text(pDX, IDC_EDIT8, iteration_end);
+	DDX_Text(pDX, IDC_EDIT4, normalization_step);
+	DDX_Control(pDX, IDC_EDIT9, output_kinetic);
+	DDX_Control(pDX, IDC_EDIT10, output_potential);
+	DDX_Control(pDX, IDC_EDIT11, output_total_energy);
+	DDX_Control(pDX, IDC_EDIT12, output_enthalpy);
+	DDX_Control(pDX, IDC_EDIT13, output_offset_square);
+	DDX_Control(pDX, IDC_EDIT14, output_temperature);
 }
 
 BEGIN_MESSAGE_MAP(CPhasetransitioninparticlesystemСplusDlg, CDialogEx)
@@ -80,6 +104,14 @@ BEGIN_MESSAGE_MAP(CPhasetransitioninparticlesystemСplusDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON1, &CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton1)
 	ON_BN_CLICKED(IDC_BUTTON2, &CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton2)
+	ON_EN_CHANGE(IDC_EDIT1, &CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit1)
+	ON_EN_CHANGE(IDC_EDIT2, &CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit2)
+	ON_BN_CLICKED(IDC_CHECK1, &CPhasetransitioninparticlesystemСplusDlg::OnBnClickedCheck1)
+	ON_BN_CLICKED(IDC_CHECK2, &CPhasetransitioninparticlesystemСplusDlg::OnBnClickedCheck2)
+	ON_EN_CHANGE(IDC_EDIT6, &CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit6)
+	ON_EN_CHANGE(IDC_EDIT8, &CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit8)
+	ON_EN_CHANGE(IDC_EDIT4, &CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit4)
+	ON_EN_CHANGE(IDC_EDIT5, &CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit5)
 END_MESSAGE_MAP()
 
 
@@ -181,63 +213,19 @@ void vector_output(vector<double>& val) {
 void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton1()
 {
 	// TODO: добавьте свой код обработчика уведомлений
+	finishAnimationFlow();
 	Particles_and_processing start_particles;
 
-	start_particles.simple_initial_state(3, 100);
-	/*
-	cout << "1111111111111111111111111" << endl;
-	for (int i = 0; i < start_particles.state.x.size(); i++) {
-		cout << start_particles.state.x[i] << "\t\t"
-			<< start_particles.state.y[i] << "\t\t"
-			<< start_particles.state.speed_x[i] << "\t\t"
-			<< start_particles.state.speed_y[i] << "\t\t"
-			<< start_particles.state.force_x[i] << "\t\t"
-			<< start_particles.state.force_y[i] << endl;
-	}
-	cout << "222222222222222222222222" << endl;
-	/*
-	vector <double> x, y;
+	start_particles.simple_initial_state(
+		input_model_particles_width, input_model_temperature,10);
 
-	int numberFunctionPoints = 20;
-	for (int i = -5; i < numberFunctionPoints; i++) {
-		x.push_back(i);
-		y.push_back(i * 2);
-	}
-
-	//drv.Draw(Vector2D(x, y));
-	vector_output(start_particles.get_center_particles().x);
-	*/
-	//drv.Draw(start_particles.get_border_line(), start_particles.get_center_particles(), 1e9);
-
-
-	// Следующее состояние
-	double step_time = 1e-14;
-	for (int j = 0; j < 4; j++) {
-		for (int i = 0; i < 10; i++)
-			start_particles.next_state(start_particles.state, step_time);
-		// Нормировка
-		start_particles.all_speed_normalization();
-	}
-
-
-	/*
-	for (int i = 0; i < start_particles.state.x.size(); i++) {
-		cout << start_particles.state.x[i] << "\t\t"
-			<< start_particles.state.y[i] << "\t\t"
-			<< start_particles.state.speed_x[i] << "\t\t"
-			<< start_particles.state.speed_y[i] << "\t\t"
-			<< start_particles.state.force_x[i] << "\t\t"
-			<< start_particles.state.force_y[i] << endl;
-	}*/
-	drawer_particle.drawing_particles(start_particles.get_border_line(), start_particles.get_center_particles(), 1e9);
-
-	int i = 0; // Начало
-	while (i < 6) {	// Конец
-		// Тело цикла
-		cout << i << "";
-
-		i += 1;	// Шаг
-	}
+	drawer_particle.drawing_particles(
+		start_particles.get_border_line(), start_particles.get_center_particles(), 1e9);
+	
+	CString str;
+	str.Format(L"%d", start_particles.number_of_particles(
+		input_model_particles_width));
+	out_all_particles.SetWindowText(str);
 }
 
 
@@ -245,3 +233,17 @@ void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedButton2()
 {
 	startAnimationFlow();
 }
+
+
+void CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit1() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit2() { UpdateData(TRUE); }
+
+void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedCheck1() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedCheck4() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedCheck2() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnBnClickedCheck3() { UpdateData(TRUE); }
+
+void CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit6() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit8() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit4() { UpdateData(TRUE); }
+void CPhasetransitioninparticlesystemСplusDlg::OnEnChangeEdit5() { UpdateData(TRUE); }

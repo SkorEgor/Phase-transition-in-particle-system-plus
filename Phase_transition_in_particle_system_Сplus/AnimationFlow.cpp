@@ -21,66 +21,132 @@ DWORD WINAPI animationThread(LPVOID t)
 	CPhasetransitioninparticlesystemСplusDlg* thisWind =
 		(CPhasetransitioninparticlesystemСplusDlg*)t;
 	
-	/*
-	//Получаем кол-во отсчетов и ширину ямы
-	int N = thisWind->input_number_of_counts;
-	double d = thisWind->input_pit_width;
-	double step_x = d / N;
-
-	//Задаем барьер
-	double a_barrier = thisWind->input_amplituda_barrier;
-	double sigma_barrier = thisWind->input_sigma_barrier;
-
-	//Задаем начальное распределение
-	double fi_packet=thisWind->input_amplituda_distributions;
-	double sigma_packet = thisWind->input_sigma_distributions;
-
-	//Получаем шаг по времени
-	double time_step = thisWind->input_time_step;
-	*/
-
 	//Зададим начальную вероятность
 	Particles_and_processing start_particles;
+	start_particles.simple_initial_state(
+		thisWind->input_model_particles_width,
+		thisWind->input_model_temperature,
+		thisWind->normalization_step);
 
-	start_particles.simple_initial_state(20, 300);
+	// Отображаем кол-во частиц
+	CString str;
+	str.Format(L"%d", start_particles.number_of_particles(
+		thisWind->input_model_particles_width));
+	thisWind->out_all_particles.SetWindowText(str);
 
-	//Задержка между кадрами
-	int delTime = 0;
+	// Очищаем поля вывода
+	thisWind->output_kinetic.SetWindowText(L"");
+	thisWind->output_potential.SetWindowText(L"");
+	thisWind->output_total_energy.SetWindowText(L"");
+	thisWind->output_enthalpy.SetWindowText(L"");
+	thisWind->output_offset_square.SetWindowText(L"");
+	thisWind->output_temperature.SetWindowText(L"");
 
-	int iteration = 1;
-	double step_time = 1e-14;
+
+	int iteration = 0;
+	double step_time = thisWind->input_time_step;
+
+	int initial_iterations = thisWind->initial_iterations;
+	bool starting_iterations = true;
+
+	int iteration_end = thisWind->iteration_end;
+	//int normalization_step = thisWind->normalization_step;
+
 	//Запуск потока
 	while (status_th) {
 		//---------Работа в потоке---------//
-		//4.2)Прописываем необходимые команды в потоке
-		for (int i = 0; i < 10; i++) {
-			start_particles.next_state(start_particles.state, step_time);
-			iteration++;
+		// Следующее состояние системы
+		// start_particles.next_state(start_particles.state, step_time);
+		//break;
+		start_particles.next_state_2(step_time);
+		
+		// Анимаиця движения
+		if (thisWind->input_animation_movement) {
+			thisWind->drawer_particle.drawing_particles(start_particles.get_border_line(),
+				start_particles.get_center_particles(), 1e9);
+		}
+
+		// Анимация графиков
+		if (thisWind->animation_graphics) {
+			thisWind->drawer_energy.drawing_energy(
+				start_particles.energy_kinetic,
+				start_particles.energy_potential,
+				start_particles.energy_total
+			);
+			thisWind->drawer_enthalpy.drawing_enthalpy(
+				start_particles.enthalpy_a
+			);
+			thisWind->bias.drawing_bias(
+				start_particles.temperature,
+				start_particles.average_square_displacement
+			);
+		}
+
+		// Конец расчета
+		if (iteration >= iteration_end) {
+			status_th = false;
+		}
+
+		// Выход на равновесное расстояние
+		if (iteration >= initial_iterations && starting_iterations) {
+			start_particles.leave_last_state();
+			starting_iterations = false;
 		}
 
 
-		if (iteration % 10==0) {
-			// Нормировка
-			start_particles.all_speed_normalization();
-		}
-		thisWind->drawer_particle.drawing_particles(start_particles.get_border_line(),
-			start_particles.get_center_particles(), 1e9);
-		thisWind->drawer_energy.drawing_energy(
-			start_particles.energy_kinetic,
-			start_particles.energy_potential,
-			start_particles.energy_total
-		);
-		thisWind->drawer_enthalpy.drawing_enthalpy(
-			start_particles.enthalpy_a
-		);
-		thisWind->bias.drawing_bias(
-			start_particles.temperature,
-			start_particles.average_square_displacement
-		);
-		//------Конец работы в потоке------//
-		//Sleep(delTime);		//4.3) Указываем задержку между кадрами
+		// Наращивание и вывод итерации
+		CString str;
+		str.Format(L"%d", iteration);
+		thisWind->number_iterations.SetWindowText(str);
 		iteration++;
 	}
+
+	// ВЫВОД ГРАФИКОВ
+	thisWind->drawer_particle.drawing_particles(start_particles.get_border_line(),
+		start_particles.get_center_particles(), 1e9);
+	thisWind->drawer_energy.drawing_energy(
+		start_particles.energy_kinetic,
+		start_particles.energy_potential,
+		start_particles.energy_total
+	);
+	thisWind->drawer_enthalpy.drawing_enthalpy(
+		start_particles.enthalpy_a
+	);
+	thisWind->bias.drawing_bias(
+		start_particles.temperature,
+		start_particles.average_square_displacement
+	);
+
+	// ВЫВОД СРЕДНИХ ЗНАЧЕНИЙ
+	CString str_out;
+
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.energy_kinetic));
+	thisWind->output_kinetic.SetWindowText(str_out);
+
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.energy_potential));
+	thisWind->output_potential.SetWindowText(str_out);
+
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.energy_total));
+	thisWind->output_total_energy.SetWindowText(str_out);
+
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.enthalpy_a));
+	thisWind->output_enthalpy.SetWindowText(str_out);
+
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.enthalpy_a));
+	thisWind->output_enthalpy.SetWindowText(str_out);
+	
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.average_square_displacement));
+	thisWind->output_offset_square.SetWindowText(str_out);
+
+	str_out.Format(L"%g", Particles_and_processing::vector_average(
+		start_particles.temperature));
+	thisWind->output_temperature.SetWindowText(str_out);
 
 	return 0;
 }
